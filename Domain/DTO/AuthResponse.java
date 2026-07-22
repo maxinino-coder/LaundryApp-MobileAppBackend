@@ -1,0 +1,26 @@
+package com.group130.laundryapp.laundry2_0.Domain.DTO;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
+import lombok.Builder;
+import lombok.Data;
+
+@Data
+@Builder
+public class AuthResponse {
+
+    @JsonProperty("access_token")
+    private String accessToken;
+
+    @JsonProperty("refresh_token")
+    private String refreshToken;
+
+    @JsonProperty("token_type")
+    @Builder.Default
+    private String tokenType = "Bearer";
+
+    @JsonProperty("role")
+    private String role;             // USER | BUSINESS | RIDER
+
+    @JsonProperty("account_id")
+    private String accountId;
+}
