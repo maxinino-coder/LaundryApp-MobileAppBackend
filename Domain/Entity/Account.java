@@ -1,5 +1,6 @@
 package com.group130.laundryapp.laundry2_0.Domain.Entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.group130.laundryapp.laundry2_0.Domain.Enum.AccountRole;
 import jakarta.persistence.*;
 import lombok.*;
@@ -79,6 +80,7 @@ public class Account implements UserDetails {
     @OneToOne(mappedBy = "account", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private Business business;
 
+    @JsonIgnore
     @OneToOne(mappedBy = "account", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private Rider rider;
 

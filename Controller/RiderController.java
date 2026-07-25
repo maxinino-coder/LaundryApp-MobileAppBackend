@@ -5,6 +5,7 @@ import com.group130.laundryapp.laundry2_0.Domain.DTO.*;
 import com.group130.laundryapp.laundry2_0.Domain.Entity.Business;
 import com.group130.laundryapp.laundry2_0.Domain.Entity.Rider;
 import com.group130.laundryapp.laundry2_0.Domain.Entity.RidesAssignment;
+import io.micrometer.common.lang.Nullable;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -20,8 +21,10 @@ public class RiderController {
     private final RiderService riderService;
 
     @GetMapping("/get_rides")
-    public ResponseEntity<List<availableOrderInfo>>  GetRides(){
-        return ResponseEntity.ok(riderService.getAvailableOrders());
+    public ResponseEntity<List<availableOrderInfo>> GetRides(
+            @RequestParam(name = "accountId", required = false) UUID accountId
+    ){
+        return ResponseEntity.ok(riderService.getAvailableOrders(accountId));
     }
 
     // Get rider profile by account id
@@ -32,11 +35,11 @@ public class RiderController {
 
     // Apply for a ride — riderId here is the rider's ACCOUNT id; service resolves it
     @PostMapping("/{riderId}/apply/{orderId}")
-    public ResponseEntity<RidesAssignment> riderApply(
+    public ResponseEntity<RidesAssignmentResponseDTO> riderApply(
             @PathVariable UUID riderId,
             @PathVariable UUID orderId) {
 
-        RidesAssignment application = riderService.riderApplyForOrder(riderId, orderId);
+        RidesAssignmentResponseDTO application = riderService.riderApplyForOrder(riderId, orderId);
         return new ResponseEntity<>(application, HttpStatus.CREATED);
     }
 
@@ -62,7 +65,7 @@ public class RiderController {
     }
 
     @PatchMapping("/{accountId}/update_profile")
-    public ResponseEntity<Rider> updateRiderProfile(
+    public ResponseEntity<Rider> updateRiderProfile( //user RiderDTO
             @PathVariable UUID accountId,
             @RequestBody UpdateRiderProfile request)
     {

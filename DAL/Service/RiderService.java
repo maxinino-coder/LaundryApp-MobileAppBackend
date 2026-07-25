@@ -11,8 +11,10 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -47,28 +49,53 @@ public class RiderService {
         ).toList();
     }
 
-    public List<availableOrderInfo> getAvailableOrders() {
-        // Pickup legs (CONFIRMED, no pickup rider) + dropoff legs (READY, no dropoff rider)
-        List<Order> orders = new java.util.ArrayList<>(orderRepository.findAvailableForPickup());
-        orders.addAll(orderRepository.findAvailableForDropoff());
+    public List<availableOrderInfo> getAvailableOrders(UUID accountId) {
+        List<Order> orders = new ArrayList<>();
+        Rider rider = null;
+
+        if (accountId != null) {
+            rider = riderRepository.findByAccountId(accountId)
+                    .or(() -> riderRepository.findById(accountId))
+                    .orElse(null);
+        }
+
+        if (rider != null && Boolean.TRUE.equals(rider.isApproved()) && rider.getBusiness() != null) {
+            // Approved rider with linked business → only orders from their business
+            UUID businessId = rider.getBusiness().getId();
+            List<Order> pickupOrders = orderRepository.findAvailableForPickupByBusinessId(businessId);
+            List<Order> dropoffOrders = orderRepository.findAvailableForDropoffByBusinessId(businessId);
+            if (pickupOrders != null) orders.addAll(pickupOrders);
+            if (dropoffOrders != null) orders.addAll(dropoffOrders);
+        } else {
+            // Unrestricted or general available orders
+            List<Order> pickupOrders = orderRepository.findAvailableForPickup();
+            List<Order> dropoffOrders = orderRepository.findAvailableForDropoff();
+            if (pickupOrders != null) orders.addAll(pickupOrders);
+            if (dropoffOrders != null) orders.addAll(dropoffOrders);
+        }
 
         return orders.stream()
-                .map(order -> availableOrderInfo.builder()
-                        .orderId(order.getId())
-                        .orderNumber(order.getOrderNumber())
-                        .status(order.getStatus())
-                        .businessName(order.getBusiness().getBusinessName())
-                        .pickupAddress(order.getPickupAddress())
-                        .pickupLat(order.getPickupLat())
-                        .pickupLng(order.getPickupLng())
-                        .deliveryAddress(order.getDeliveryAddress())
-                        .deliveryLat(order.getDeliveryLat())
-                        .deliveryLng(order.getDeliveryLng())
-                        .deliveryFee(order.getDeliveryFee())
-                        .createdAt(order.getCreatedAt())
-                        .pickupTime(order.getPickupTime())
-                        .build())
-                .toList();
+                .map(this::toAvailableOrderInfo)
+                .collect(Collectors.toList());
+    }
+
+    // Helper method to map Order → availableOrderInfo
+    private availableOrderInfo toAvailableOrderInfo(Order order) {
+        return availableOrderInfo.builder()
+                .orderId(order.getId())
+                .orderNumber(order.getOrderNumber())
+                .status(order.getStatus())
+                .businessName(order.getBusiness().getBusinessName())
+                .pickupAddress(order.getPickupAddress())
+                .pickupLat(order.getPickupLat())
+                .pickupLng(order.getPickupLng())
+                .deliveryAddress(order.getDeliveryAddress())
+                .deliveryLat(order.getDeliveryLat())
+                .deliveryLng(order.getDeliveryLng())
+                .deliveryFee(order.getDeliveryFee())
+                .createdAt(order.getCreatedAt())
+                .pickupTime(order.getPickupTime())
+                .build();
     }
 
     @Transactional
@@ -103,7 +130,7 @@ public class RiderService {
      * falling back to a direct Rider row id for backwards compatibility.
      */
     @Transactional
-    public RidesAssignment riderApplyForOrder(UUID riderOrAccountId, UUID orderId) {
+    public RidesAssignmentResponseDTO riderApplyForOrder(UUID riderOrAccountId, UUID orderId) {
         Rider rider = riderRepository.findByAccountId(riderOrAccountId)
                 .or(() -> riderRepository.findById(riderOrAccountId))
                 .orElseThrow(() -> new RuntimeException("Rider profile not found."));
@@ -134,14 +161,28 @@ public class RiderService {
             throw new IllegalStateException("You have already applied to pick up this order.");
         }
 
+        // In your service method:
         RidesAssignment application = RidesAssignment.builder()
                 .order(order)
                 .rider(rider)
-                .business(order.getBusiness()) // <-- ADD THIS LINE
+                .business(order.getBusiness())
                 .status("PENDING")
                 .build();
 
-        return ridesAssignmentRepository.save(application);
+        RidesAssignment savedEntity = ridesAssignmentRepository.save(application);
+
+        return convertToDto(savedEntity);
+    }
+    private RidesAssignmentResponseDTO convertToDto(RidesAssignment entity) {
+        // Assuming your DTO has a builder (or you can use a constructor)
+        return RidesAssignmentResponseDTO.builder()
+                .id(entity.getId())
+                .orderId(entity.getOrder().getId())      // only the ID, not the whole Order
+                .riderId(entity.getRider().getId())      // only the ID
+                .businessId(entity.getBusiness().getId())// only the ID
+                .status(entity.getStatus())
+                // Add any other primitive/immutable fields you need
+                .build();
     }
 
     /**

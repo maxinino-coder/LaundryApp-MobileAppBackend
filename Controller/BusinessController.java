@@ -9,12 +9,14 @@ import com.group130.laundryapp.laundry2_0.DAL.Configuration.Auth.AuthSupport.Use
 import com.group130.laundryapp.laundry2_0.Domain.Entity.Business;
 import com.group130.laundryapp.laundry2_0.Domain.Entity.BusinessPayout;
 import com.group130.laundryapp.laundry2_0.Domain.Entity.Order;
+import com.group130.laundryapp.laundry2_0.Domain.Entity.Rider;
 import com.group130.laundryapp.laundry2_0.Domain.Enum.OrderStatus;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -70,6 +72,25 @@ public class BusinessController {
     public ResponseEntity<Business> getBusinessInfo(@PathVariable UUID accountId){
         return ResponseEntity.ok(businessService.getBusinessByAccountId(accountId));
     }
+
+    @PatchMapping("/{accountId}/updateApprovedRider")
+    public ResponseEntity<Map<String, Object>> approveRider(
+            @PathVariable UUID accountId,
+            @RequestBody Boolean choice
+    ){
+        List<riderInfo> updated = businessService.approveRiderAccount(accountId, choice);
+        return ResponseEntity.ok(Map.of(
+                "message", "Approval status updated",
+                "count", updated.size()
+        ));
+    };
+
+    @GetMapping("/{accountId}/getBusinessAssociatedRiders")
+    public ResponseEntity<List<Rider>> getRidersForBusniess(
+            @PathVariable UUID accountId){
+        return ResponseEntity.ok(businessService.getRidersForBusniess(accountId));
+    }
+
 
 
 //    @PostMapping("/create_service_items")

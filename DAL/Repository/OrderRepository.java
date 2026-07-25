@@ -59,7 +59,7 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
     @Query("""
     SELECT o FROM Order o
     WHERE o.pickupRider IS NULL
-      AND o.status = 'CONFIRMED'
+      AND o.status = 'PENDING'
     ORDER BY o.createdAt ASC
     """)
     List<Order> findAvailableForPickup();
@@ -81,5 +81,10 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
     List<Order> findOrdersWithItemsByBusinessId(@Param("businessId") UUID businessId);
 
     List<Order> findByUserIdOrderByCreatedAtDesc(UUID accountId);
+    @Query("SELECT o FROM Order o WHERE o.business.id = :businessId AND o.status = 'CONFIRMED' AND o.pickupRider IS NULL")
+    List<Order> findAvailableForPickupByBusinessId(@Param("businessId") UUID businessId);
+
+    @Query("SELECT o FROM Order o WHERE o.business.id = :businessId AND o.status = 'READY' AND o.dropoffRider IS NULL")
+    List<Order> findAvailableForDropoffByBusinessId(@Param("businessId") UUID businessId);
 }
 

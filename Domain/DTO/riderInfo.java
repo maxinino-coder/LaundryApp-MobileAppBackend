@@ -31,4 +31,5 @@ public class riderInfo {
     private String BankAccountNo;
     private OffsetDateTime CreatedAt;
     private OffsetDateTime UpdatedAt;
-}
+
+    }

@@ -2,11 +2,7 @@ package com.group130.laundryapp.laundry2_0.DAL.Service;
 
 import com.group130.laundryapp.laundry2_0.DAL.Repository.*;
 import com.group130.laundryapp.laundry2_0.Domain.DTO.*;
-import com.group130.laundryapp.laundry2_0.Domain.Entity.Business;
-import com.group130.laundryapp.laundry2_0.Domain.Entity.Account;
-import com.group130.laundryapp.laundry2_0.Domain.Entity.BusinessPayout;
-import com.group130.laundryapp.laundry2_0.Domain.Entity.Order;   // ← correct
-import com.group130.laundryapp.laundry2_0.Domain.Entity.OrderItem;
+import com.group130.laundryapp.laundry2_0.Domain.Entity.*;
 //import com.group130.laundryapp.laundry2_0.Domain.Entity.ServiceItem;
 import com.group130.laundryapp.laundry2_0.Domain.Enum.AccountRole;
 import com.group130.laundryapp.laundry2_0.Domain.Enum.OrderStatus;
@@ -29,6 +25,7 @@ public class BusinessService {
     private final OrderRepository orderRepository;
     private final OrderItemRepository orderItemRepository;
     private final BusinessPayoutRepository businessPayoutRepository;
+    private final RiderRepository riderRepository;
 
     // Overload 1: Called by /business_info
     public Business getBusinessByAccountId(UUID accountId) {
@@ -327,6 +324,44 @@ public List<orderInfo> getBusinesOrders(UUID accountId) {
                 .pendingCount(pendingCount)
                 .settledCount(settledCount)
                 .build();
+    }
+
+    public List<riderInfo> approveRiderAccount(UUID accountId, Boolean choice) {
+        Business business = businessRepository.findByAccountId(accountId)
+                .orElseThrow(() -> new RuntimeException("Business Account not found"));
+
+        List<Rider> riders = riderRepository.findByBusinessId(business.getId());
+        if (riders.isEmpty()) {
+            throw new RuntimeException("No riders found");
+        }
+
+        boolean approved = Boolean.TRUE.equals(choice);
+        riders.forEach(r -> r.setApproved(approved));
+
+        return riderRepository.saveAll(riders)
+                .stream()
+                .map(this::toDto)
+                .collect(Collectors.toList());
+    }
+
+    private riderInfo toDto(Rider rider) {
+        return riderInfo.builder()
+                .Id(rider.getId())
+                .FirstName(rider.getFirstName())
+                .IsApproved(rider.isApproved())
+                .build();
+    }
+
+    public List<Rider> getRidersForBusniess(UUID accountId) {
+        Business business = businessRepository.findByAccountId(accountId)
+                .orElseThrow(() -> new RuntimeException("Business Account not found"));
+
+        List<Rider> riders = riderRepository.findByBusinessId(business.getId());
+        if (riders.isEmpty()) {
+            throw new RuntimeException("No riders found");
+        }
+
+        return riders;
     }
 
 

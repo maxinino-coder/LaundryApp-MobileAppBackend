@@ -1,5 +1,6 @@
 package com.group130.laundryapp.laundry2_0.Domain.Entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.group130.laundryapp.laundry2_0.Domain.Enum.RiderType;
 import com.group130.laundryapp.laundry2_0.Domain.Enum.VehicleType;
 import jakarta.persistence.*;
@@ -24,6 +25,7 @@ public class Rider {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
+    @JsonIgnore
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "account_id", nullable = false, unique = true,
             foreignKey = @ForeignKey(name = "fk_riders_account_id"))
