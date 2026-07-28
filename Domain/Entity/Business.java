@@ -61,6 +61,15 @@ public class Business {
     @Column(name = "bank_account_name",length = 150) private String bankAccountName;
     @Column(name = "momo_number",      length = 20)  private String momoNumber;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "pricing_model", nullable = false)
+    @Builder.Default
+    private com.group130.laundryapp.laundry2_0.Domain.Enum.PricingModel pricingModel = com.group130.laundryapp.laundry2_0.Domain.Enum.PricingModel.PER_ITEM;
+
+    @Column(name = "price_per_kg", precision = 10, scale = 2)
+    @Builder.Default
+    private java.math.BigDecimal pricePerKg = new java.math.BigDecimal("15.00");
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;

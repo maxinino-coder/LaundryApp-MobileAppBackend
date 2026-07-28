@@ -6,6 +6,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
+
 @Data
 @Builder
 @AllArgsConstructor
@@ -14,5 +16,6 @@ public class OrderItemsRequest {
     // The catalog is category-based (ServiceItem entity was intentionally removed)
     private ServiceCategory serviceCategory;
     private int quantity;
+    private BigDecimal unitPrice;
     private String note;
 }

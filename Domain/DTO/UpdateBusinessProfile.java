@@ -31,6 +31,8 @@ public class UpdateBusinessProfile {
     @JsonAlias("bankAccountNo")  private String bank_account_no;
     @JsonAlias("bankAccountName") private String bank_account_name;
     @JsonAlias("momoNumber")     private String momo_number;
+    @JsonAlias("pricingModel")   private com.group130.laundryapp.laundry2_0.Domain.Enum.PricingModel pricing_model;
+    @JsonAlias("pricePerKg")     private String price_per_kg;
     @JsonAlias("createdAt")      private OffsetDateTime created_at;
     @JsonAlias("updatedAt")      private OffsetDateTime updated_at;
     @JsonAlias("paystackSubaccountCode") private String paystack_subaccount_code;

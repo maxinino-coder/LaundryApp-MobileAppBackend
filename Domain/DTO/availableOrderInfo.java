@@ -22,19 +22,23 @@ public class availableOrderInfo {
 
     // Business info — so the rider knows where to pick up from
     private String       businessName;
+    private String       businessAddress;
+    private Double        businessLat;
+    private Double        businessLng;
+
     private String       pickupAddress;
     private Double        pickupLat;
     private Double        pickupLng;
 
-    // Delivery destination — so the rider can judge distance/effort
     private String       deliveryAddress;
     private Double        deliveryLat;
     private Double        deliveryLng;
 
-    // What the rider earns for taking this job
     private BigDecimal deliveryFee;
 
-    // Timing context
     private OffsetDateTime createdAt;
     private OffsetDateTime pickupTime;
+
+    /** "PICKUP" (customer → business) or "DELIVERY" (business → customer). */
+    private String jobType;
 }

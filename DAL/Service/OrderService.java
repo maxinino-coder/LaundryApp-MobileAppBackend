@@ -83,7 +83,6 @@ public class OrderService {
                     .amount(legFee != null ? legFee : BigDecimal.ZERO)
                     .build());
         }
-
         // Clear out the application statuses cleanly
         List<RidesAssignment> allApplications = ridesAssignmentRepository.findByOrderId(orderId);
         for (RidesAssignment app : allApplications) {
@@ -97,6 +96,72 @@ public class OrderService {
 
         return toOrderInfo(savedOrder);
     }
+
+    /**
+     * USER CONFIRMS RIDER: After accepting an applicant, the user explicitly
+     * confirms the rider. This moves the order to CONFIRMED status, which
+     * is the signal for the rider's route map to become visible.
+     * POST /api/v1/users/{accountId}/orders/{orderId}/confirm-rider
+     *
+     */
+
+    /**
+     * 2b. USER CALL: Decline a rider's application without accepting anyone else.
+     * Leaves the order open for other applicants — does not touch order status
+     * or pickup/dropoff rider assignment.
+     */
+    @Transactional
+    public orderInfo userRejectRider(UUID orderId, UUID accountId, UUID applicationId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Order not found."));
+
+        User user = userRepository.findByAccountId(accountId)
+                .or(() -> userRepository.findById(accountId))
+                .orElseThrow(() -> new RuntimeException("User not found."));
+
+        if (!order.getUser().getId().equals(user.getId())) {
+            throw new SecurityException("Unauthorized: You do not own this order.");
+        }
+
+        RidesAssignment targetApplication = ridesAssignmentRepository.findById(applicationId)
+                .orElseThrow(() -> new RuntimeException("Application submission not found."));
+
+        if (!targetApplication.getOrder().getId().equals(orderId)) {
+            throw new IllegalArgumentException("This application does not belong to the specified order.");
+        }
+
+        if ("ACCEPTED".equals(targetApplication.getStatus())) {
+            throw new IllegalStateException("Cannot reject an application that has already been accepted.");
+        }
+
+        targetApplication.setStatus("REJECTED");
+        ridesAssignmentRepository.save(targetApplication);
+
+        return toOrderInfo(order);
+    }
+    @Transactional
+    public orderInfo userConfirmRider(UUID orderId, UUID accountId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Order not found."));
+
+        User user = userRepository.findByAccountId(accountId)
+                .or(() -> userRepository.findById(accountId))
+                .orElseThrow(() -> new RuntimeException("User not found."));
+
+        if (!order.getUser().getId().equals(user.getId())) {
+            throw new SecurityException("Unauthorized: You do not own this order.");
+        }
+
+        if (order.getPickupRider() == null) {
+            throw new IllegalStateException("No rider has been assigned to this order yet.");
+        }
+
+        // Move to CONFIRMED — this is what the rider's route page checks
+        order.setStatus(OrderStatus.CONFIRMED);
+        Order saved = orderRepository.save(order);
+        return toOrderInfo(saved);
+    }
+
 
     /**
      * Users view who has applied to pick up their order.

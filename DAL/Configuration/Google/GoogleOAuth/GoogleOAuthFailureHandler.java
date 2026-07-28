@@ -1,13 +1,5 @@
 package com.group130.laundryapp.laundry2_0.DAL.Configuration.Google.GoogleOAuth;
 
-// ============================================================
-//  GoogleOAuthFailureHandler.java
-//  Called when anything goes wrong in the OAuth flow:
-//  - User cancelled the Google login popup
-//  - State mismatch (CSRF attempt)
-//  - Google returned an error
-//  Redirects browser to the frontend with an error reason.
-// ============================================================
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;

@@ -70,13 +70,14 @@ public class UserService {
         Double deliveryLat = request.getDeliveryLat() != null ? request.getDeliveryLat() : request.getPickupLat();
         Double deliveryLng = request.getDeliveryLng() != null ? request.getDeliveryLng() : request.getPickupLng();
 
-        // 2. Price the items from the category table and compute totals
+        // 2. Price the items using provided unitPrice or category table, and compute totals
         BigDecimal subtotal = BigDecimal.ZERO;
         for (OrderItemsRequest itemRequest : request.getItems()) {
             int qty = itemRequest.getQuantity() <= 0 ? 1 : itemRequest.getQuantity();
-            subtotal = subtotal.add(
-                    ServicePricing.priceFor(itemRequest.getServiceCategory())
-                            .multiply(BigDecimal.valueOf(qty)));
+            BigDecimal unitPrice = (itemRequest.getUnitPrice() != null && itemRequest.getUnitPrice().compareTo(BigDecimal.ZERO) > 0)
+                    ? itemRequest.getUnitPrice()
+                    : ServicePricing.priceFor(itemRequest.getServiceCategory());
+            subtotal = subtotal.add(unitPrice.multiply(BigDecimal.valueOf(qty)));
         }
 
         BigDecimal pickupFee  = ServicePricing.PICKUP_FEE;
@@ -110,11 +111,13 @@ public class UserService {
         List<OrderItemDTO> itemDTOs = new ArrayList<>();
         for (OrderItemsRequest itemRequest : request.getItems()) {
             int qty = itemRequest.getQuantity() <= 0 ? 1 : itemRequest.getQuantity();
-            BigDecimal unitPrice = ServicePricing.priceFor(itemRequest.getServiceCategory());
+            BigDecimal unitPrice = (itemRequest.getUnitPrice() != null && itemRequest.getUnitPrice().compareTo(BigDecimal.ZERO) > 0)
+                    ? itemRequest.getUnitPrice()
+                    : ServicePricing.priceFor(itemRequest.getServiceCategory());
 
             OrderItem orderItem = OrderItem.builder()
                     .order(savedOrder)
-                    .serviceCategory(itemRequest.getServiceCategory())
+                    .serviceCategory(itemRequest.getServiceCategory() != null ? itemRequest.getServiceCategory() : com.group130.laundryapp.laundry2_0.Domain.Enum.ServiceCategory.WASH_FOLD)
                     .quantity(qty)
                     .unitPrice(unitPrice)
                     .notes(itemRequest.getNote())
@@ -122,7 +125,7 @@ public class UserService {
             orderItemRepository.save(orderItem);
 
             itemDTOs.add(OrderItemDTO.builder()
-                    .serviceCategory(itemRequest.getServiceCategory())
+                    .serviceCategory(itemRequest.getServiceCategory() != null ? itemRequest.getServiceCategory() : com.group130.laundryapp.laundry2_0.Domain.Enum.ServiceCategory.WASH_FOLD)
                     .Quantity(qty)
                     .UnitPrice(unitPrice)
                     .LineTotal(unitPrice.multiply(BigDecimal.valueOf(qty)))

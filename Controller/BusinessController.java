@@ -51,6 +51,18 @@ public class BusinessController {
                 : businessService.updateOrderStatus(orderId, request.getOrderStatus());
         return ResponseEntity.ok(orderInfo.from(updatedOrder, List.of()));
     }
+
+    /**
+     * Business confirms a received order — moves it to CONFIRMED status
+     * so that riders can see and apply for the pickup job.
+     * POST /api/v1/business/orders/{orderId}/confirm
+     */
+    @PostMapping("/orders/{orderId}/confirm")
+    public ResponseEntity<orderInfo> confirmOrder(@PathVariable UUID orderId) {
+        Order confirmed = businessService.updateOrderStatus(orderId, OrderStatus.CONFIRMED);
+        return ResponseEntity.ok(orderInfo.from(confirmed, List.of()));
+    }
+
     //Update Business Profile
     @PatchMapping("/{accountId}/update_profile")
     public ResponseEntity<Business> updateBusinessProfile(

@@ -1,6 +1,5 @@
 package com.group130.laundryapp.laundry2_0.DAL.Service;
 
-import com.google.api.client.util.DateTime;
 import com.group130.laundryapp.laundry2_0.DAL.Repository.*;
 import com.group130.laundryapp.laundry2_0.Domain.DTO.*;
 import com.group130.laundryapp.laundry2_0.Domain.Entity.*;
@@ -15,6 +14,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import java.util.Comparator;
 
 @Service
 @RequiredArgsConstructor
@@ -25,6 +25,7 @@ public class RiderService {
     private final AccountRepository accountRepository;
     private final RiderEarningRepository riderEarningRepository;
     private final RiderPayoutService riderPayoutService;
+    private final OrderItemRepository orderItemRepository;
 
     public List<riderInfo> getRiderInfo(){
         List<Rider> riders = riderRepository.findAll();
@@ -50,7 +51,8 @@ public class RiderService {
     }
 
     public List<availableOrderInfo> getAvailableOrders(UUID accountId) {
-        List<Order> orders = new ArrayList<>();
+        List<Order> pickupOrders;
+        List<Order> dropoffOrders;
         Rider rider = null;
 
         if (accountId != null) {
@@ -60,32 +62,35 @@ public class RiderService {
         }
 
         if (rider != null && Boolean.TRUE.equals(rider.isApproved()) && rider.getBusiness() != null) {
-            // Approved rider with linked business → only orders from their business
             UUID businessId = rider.getBusiness().getId();
-            List<Order> pickupOrders = orderRepository.findAvailableForPickupByBusinessId(businessId);
-            List<Order> dropoffOrders = orderRepository.findAvailableForDropoffByBusinessId(businessId);
-            if (pickupOrders != null) orders.addAll(pickupOrders);
-            if (dropoffOrders != null) orders.addAll(dropoffOrders);
+            pickupOrders = orderRepository.findAvailableForPickupByBusinessId(businessId);
+            dropoffOrders = orderRepository.findAvailableForDropoffByBusinessId(businessId);
         } else {
-            // Unrestricted or general available orders
-            List<Order> pickupOrders = orderRepository.findAvailableForPickup();
-            List<Order> dropoffOrders = orderRepository.findAvailableForDropoff();
-            if (pickupOrders != null) orders.addAll(pickupOrders);
-            if (dropoffOrders != null) orders.addAll(dropoffOrders);
+            pickupOrders = orderRepository.findAvailableForPickup();
+            dropoffOrders = orderRepository.findAvailableForDropoff();
         }
+        if (pickupOrders == null) pickupOrders = new ArrayList<>();
+        if (dropoffOrders == null) dropoffOrders = new ArrayList<>();
 
-        return orders.stream()
-                .map(this::toAvailableOrderInfo)
-                .collect(Collectors.toList());
+        List<availableOrderInfo> result = new ArrayList<>();
+        pickupOrders.forEach(o -> result.add(toAvailableOrderInfo(o, "PICKUP")));
+        dropoffOrders.forEach(o -> result.add(toAvailableOrderInfo(o, "DELIVERY")));
+
+        result.sort(Comparator.comparing(availableOrderInfo::getCreatedAt).reversed());
+        return result;
     }
 
     // Helper method to map Order → availableOrderInfo
-    private availableOrderInfo toAvailableOrderInfo(Order order) {
+    private availableOrderInfo toAvailableOrderInfo(Order order, String jobType) {
+        Business business = order.getBusiness();
         return availableOrderInfo.builder()
                 .orderId(order.getId())
                 .orderNumber(order.getOrderNumber())
                 .status(order.getStatus())
-                .businessName(order.getBusiness().getBusinessName())
+                .businessName(business != null ? business.getBusinessName() : null)
+                .businessAddress(business != null ? business.getAddress() : null)
+                .businessLat(business != null ? business.getLatitude() : null)
+                .businessLng(business != null ? business.getLongitude() : null)
                 .pickupAddress(order.getPickupAddress())
                 .pickupLat(order.getPickupLat())
                 .pickupLng(order.getPickupLng())
@@ -95,6 +100,7 @@ public class RiderService {
                 .deliveryFee(order.getDeliveryFee())
                 .createdAt(order.getCreatedAt())
                 .pickupTime(order.getPickupTime())
+                .jobType(jobType)
                 .build();
     }
 
@@ -135,9 +141,9 @@ public class RiderService {
                 .or(() -> riderRepository.findById(riderOrAccountId))
                 .orElseThrow(() -> new RuntimeException("Rider profile not found."));
 
-        if (!rider.isApproved() || !rider.isAvailable()) {
-            throw new IllegalStateException("Rider must be approved and marked active/available.");
-        }
+//        if (!(rider.isApproved() && rider.isAvailable())) {
+//            throw new IllegalStateException("Rider must be approved and marked active/available.");
+//        }
 
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Order not found."));
@@ -212,6 +218,51 @@ public class RiderService {
         order.setStatus(OrderStatus.IN_PROGRESS);
         order.setDropoffConfirmedAt(OffsetDateTime.now());
         orderRepository.save(order);
+    }
+
+    /**
+     * Returns orders where this rider is the active pickup or dropoff rider
+     * and the order is not yet completed or cancelled.
+     * Called by GET /api/v1/riders/{accountId}/active_jobs
+     */
+    @Transactional
+    public List<orderInfo> getActiveJobs(UUID accountId) {
+        Rider rider = riderRepository.findByAccountId(accountId)
+                .or(() -> riderRepository.findById(accountId))
+                .orElseThrow(() -> new RuntimeException("Rider profile not found."));
+
+        List<Order> activeOrders = orderRepository.findActiveJobsByRiderId(rider.getId());
+
+        return activeOrders.stream()
+                .map(order -> {
+                    List<OrderItem> items = orderItemRepository.findByOrderId(order.getId());
+                    List<OrderItemDTO> itemDTOs = items.stream()
+                            .map(item -> OrderItemDTO.builder()
+                                    .Quantity(item.getQuantity())
+                                    .UnitPrice(item.getUnitPrice())
+                                    .LineTotal(BigDecimal.valueOf(item.getQuantity()).multiply(item.getUnitPrice()))
+                                    .serviceCategory(item.getServiceCategory())
+                                    .Notes(item.getNotes())
+                                    .CreatedAt(item.getCreatedAt())
+                                    .build())
+                            .collect(Collectors.toList());
+
+                    orderInfo info = orderInfo.from(order, itemDTOs);
+                    boolean isDropoffLeg = order.getDropoffRider() != null
+                            && order.getDropoffRider().getId().equals(rider.getId());
+                    info.setJobType(isDropoffLeg ? "DELIVERY" : "PICKUP");
+                    return info;
+                })
+                .collect(Collectors.toList());
+    }
+
+    public void updateRiderLocation(UUID accountId, Double lat, Double lng) {
+        Rider rider = riderRepository.findByAccountId(accountId)
+                .orElseThrow(() -> new RuntimeException("Rider profile not found for account " + accountId));
+        rider.setCurrentLat(lat);
+        rider.setCurrentLng(lng);
+        rider.setLastLocationAt(OffsetDateTime.now());
+        riderRepository.save(rider);
     }
 
     public RiderPayoutDTO getRiderPayout(UUID accountId) {
@@ -343,6 +394,47 @@ public class RiderService {
         rider.setUpdatedAt(OffsetDateTime.now());
 
         return riderRepository.save(rider);
+    }
+    /**
+     * Authoritative check used by the rider's route screen: confirms this rider
+     * is actually the pickup or dropoff rider on this order right now, and that
+     * the order is still active. Throws if not — used to detect rejection,
+     * reassignment, or cancellation while the rider is viewing the route.
+     */
+    @Transactional
+    public orderInfo getJobStatus(UUID accountId, UUID orderId) {
+        Rider rider = riderRepository.findByAccountId(accountId)
+                .or(() -> riderRepository.findById(accountId))
+                .orElseThrow(() -> new RuntimeException("Rider profile not found."));
+
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Order not found."));
+
+        boolean isPickupRider = order.getPickupRider() != null
+                && order.getPickupRider().getId().equals(rider.getId());
+        boolean isDropoffRider = order.getDropoffRider() != null
+                && order.getDropoffRider().getId().equals(rider.getId());
+
+        if (!isPickupRider && !isDropoffRider) {
+            throw new SecurityException("You are not assigned to this order.");
+        }
+        if (order.getStatus() == OrderStatus.CANCELLED || order.getStatus() == OrderStatus.DELIVERED) {
+            throw new IllegalStateException("This job is no longer active.");
+        }
+
+        List<OrderItem> items = orderItemRepository.findByOrderId(order.getId());
+        List<OrderItemDTO> itemDTOs = items.stream()
+                .map(item -> OrderItemDTO.builder()
+                        .Quantity(item.getQuantity())
+                        .UnitPrice(item.getUnitPrice())
+                        .LineTotal(BigDecimal.valueOf(item.getQuantity()).multiply(item.getUnitPrice()))
+                        .serviceCategory(item.getServiceCategory())
+                        .Notes(item.getNotes())
+                        .CreatedAt(item.getCreatedAt())
+                        .build())
+                .collect(Collectors.toList());
+
+        return orderInfo.from(order, itemDTOs);
     }
 
 //

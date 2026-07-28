@@ -90,6 +90,8 @@ public class BusinessService {
                         .BankAccountNo(nullSafeString(business.getBankAccountNo()))
                         .BankAccountName(nullSafeString(business.getBankAccountName()))
                         .MomoNumber(nullSafeString(business.getMomoNumber()))
+                        .PricingModel(business.getPricingModel() != null ? business.getPricingModel() : com.group130.laundryapp.laundry2_0.Domain.Enum.PricingModel.PER_ITEM)
+                        .PricePerKg(business.getPricePerKg() != null ? business.getPricePerKg() : new java.math.BigDecimal("15.00"))
                         .build())
                 .collect(Collectors.toList());
     }
@@ -258,6 +260,14 @@ public List<orderInfo> getBusinesOrders(UUID accountId) {
         }
         if (request.getMomo_number() != null) {
             business.setMomoNumber(request.getMomo_number());
+        }
+        if (request.getPricing_model() != null) {
+            business.setPricingModel(request.getPricing_model());
+        }
+        if (request.getPrice_per_kg() != null) {
+            try {
+                business.setPricePerKg(new java.math.BigDecimal(request.getPrice_per_kg()));
+            } catch (Exception ignored) {}
         }
         if (request.getCreated_at() != null) {
             business.setCreatedAt(request.getCreated_at());

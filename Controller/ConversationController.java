@@ -6,6 +6,7 @@ import com.group130.laundryapp.laundry2_0.Domain.DTO.ConversationSummaryDTO;
 import com.group130.laundryapp.laundry2_0.Domain.DTO.MessageDTO;
 import com.group130.laundryapp.laundry2_0.Domain.Entity.Account;
 import com.group130.laundryapp.laundry2_0.Domain.Entity.Conversation;
+import com.group130.laundryapp.laundry2_0.Domain.Enum.ConversationCounterpart;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -32,13 +33,14 @@ public class ConversationController {
         Account requester = userContextHolder.getCurrentAccount();
 
         Conversation conversation = conversationService.getOrCreateConversation(
-                req.orderId(), requester.getId(), req.otherAccountId());
+                req.orderId(), requester.getId(), req.counterpart());
 
         return ResponseEntity.ok(Map.of(
                 "conversation_id", conversation.getId().toString(),
                 "supabase_channel", conversation.getSupabaseChannel()
         ));
     }
+
 
     @GetMapping
     public ResponseEntity<List<ConversationSummaryDTO>> listConversations() {
@@ -52,5 +54,4 @@ public class ConversationController {
         return ResponseEntity.ok(conversationService.getMessages(conversationId, requester.getId()));
     }
 
-    public record StartConversationRequest(UUID orderId, UUID otherAccountId) {}
-}
+    public record StartConversationRequest(UUID orderId, ConversationCounterpart counterpart) {}}

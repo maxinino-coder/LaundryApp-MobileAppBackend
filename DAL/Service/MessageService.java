@@ -45,8 +45,9 @@ public class MessageService {
         // 1. Save permanently in your own database
         Message message = Message.builder()
                 .conversation(conversation)
-                .sender(Account.builder().id(senderAccountId).build()) // reference only
+                .sender(Account.builder().id(senderAccountId).build())
                 .body(body)
+                .createdAt(java.time.OffsetDateTime.now())
                 .build();
         Message saved = messageRepository.save(message);
 

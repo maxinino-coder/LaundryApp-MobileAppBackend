@@ -40,19 +40,57 @@ public class orderInfo {
     private String CancelledReason;
     private OffsetDateTime CreatedAt;
     private OffsetDateTime UpdatedAt;
+    private String BusinessName;
+    private String BusinessAddress;
+    private Double BusinessLat;
+    private Double BusinessLng;
+    private Double ActiveRiderLat;
+    private Double ActiveRiderLng;
+    private Boolean RiderActive;
+    /** Not set by from() — caller fills this in per-rider (which leg they're on). */
+    private String jobType;
 
     private List<OrderItemDTO> orderItems;
 
     /** Single mapping point Order → orderInfo so list/detail endpoints stay consistent. */
     public static orderInfo from(com.group130.laundryapp.laundry2_0.Domain.Entity.Order order,
                                  List<OrderItemDTO> itemDTOs) {
+        com.group130.laundryapp.laundry2_0.Domain.Entity.Business business = order.getBusiness();
+
+        Double riderLat = null;
+        Double riderLng = null;
+        boolean isRiderActive = false;
+
+        // Rider marker only shows while job is active. Once DELIVERED or CANCELLED, rider marker disappears.
+        if (order.getStatus() != OrderStatus.DELIVERED && order.getStatus() != OrderStatus.CANCELLED) {
+            com.group130.laundryapp.laundry2_0.Domain.Entity.Rider activeRider = null;
+            if (order.getStatus() == OrderStatus.CONFIRMED || order.getStatus() == OrderStatus.PICKED_UP || order.getStatus() == OrderStatus.IN_PROGRESS) {
+                activeRider = order.getPickupRider();
+            } else if (order.getStatus() == OrderStatus.READY || order.getStatus() == OrderStatus.OUT_FOR_DELIVERY) {
+                activeRider = order.getDropoffRider();
+            }
+
+            if (activeRider != null && activeRider.getCurrentLat() != null && activeRider.getCurrentLng() != null) {
+                riderLat = activeRider.getCurrentLat();
+                riderLng = activeRider.getCurrentLng();
+                isRiderActive = true;
+            }
+        }
+
         return orderInfo.builder()
                 .OrderId(order.getId())
                 .OrderNumber(order.getOrderNumber())
                 .UserId(order.getUser() != null ? order.getUser().getId() : null)
-                .BusinessId(order.getBusiness() != null ? order.getBusiness().getId() : null)
+                .BusinessId(business != null ? business.getId() : null)
+                .BusinessName(business != null ? business.getBusinessName() : null)
+                .BusinessAddress(business != null ? business.getAddress() : null)
+                .BusinessLat(business != null ? business.getLatitude() : null)
+                .BusinessLng(business != null ? business.getLongitude() : null)
                 .PickUpRiderId(order.getPickupRider() != null ? order.getPickupRider().getId() : null)
                 .DelivaryRiderId(order.getDropoffRider() != null ? order.getDropoffRider().getId() : null)
+                .ActiveRiderLat(riderLat)
+                .ActiveRiderLng(riderLng)
+                .RiderActive(isRiderActive)
                 .Status(order.getStatus())
                 .PickupAddress(order.getPickupAddress())
                 .PickupLat(order.getPickupLat())

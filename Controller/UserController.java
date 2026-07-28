@@ -59,6 +59,15 @@ public class UserController {
         return ResponseEntity.ok(orderService.getOrderApplicants(orderId, accountId));
     }
 
+    // Reject one rider's application for an order — leaves it open for others
+    @PostMapping("/{accountId}/orders/{orderId}/applicants/{applicationId}/reject")
+    public ResponseEntity<orderInfo> rejectApplicant(
+            @PathVariable UUID accountId,
+            @PathVariable UUID orderId,
+            @PathVariable UUID applicationId) {
+        return ResponseEntity.ok(orderService.userRejectRider(orderId, accountId, applicationId));
+    }
+
     // Accept one rider's application for an order
     @PostMapping("/{accountId}/orders/{orderId}/applicants/{applicationId}/accept")
     public ResponseEntity<orderInfo> acceptApplicant(
@@ -66,6 +75,18 @@ public class UserController {
             @PathVariable UUID orderId,
             @PathVariable UUID applicationId) {
         return ResponseEntity.ok(orderService.userAcceptRider(orderId, accountId, applicationId));
+    }
+
+    /**
+     * User confirms the assigned rider — this is what makes the rider's
+     * route map become visible (order status moves to CONFIRMED).
+     * POST /api/v1/users/{accountId}/orders/{orderId}/confirm-rider
+     */
+    @PostMapping("/{accountId}/orders/{orderId}/confirm-rider")
+    public ResponseEntity<orderInfo> confirmRider(
+            @PathVariable UUID accountId,
+            @PathVariable UUID orderId) {
+        return ResponseEntity.ok(orderService.userConfirmRider(orderId, accountId));
     }
 
     @GetMapping("/customer_orders")

@@ -29,5 +29,6 @@ public class businessInfo {
     private String   BankAccountNo;
     private String   BankAccountName;
     private String   MomoNumber;
-
+    private com.group130.laundryapp.laundry2_0.Domain.Enum.PricingModel PricingModel;
+    private java.math.BigDecimal PricePerKg;
 }

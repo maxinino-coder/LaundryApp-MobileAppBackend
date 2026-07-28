@@ -10,6 +10,7 @@ import com.group130.laundryapp.laundry2_0.DAL.Repository.UserRepository;
 import com.group130.laundryapp.laundry2_0.Domain.DTO.ConversationSummaryDTO;
 import com.group130.laundryapp.laundry2_0.Domain.DTO.MessageDTO;
 import com.group130.laundryapp.laundry2_0.Domain.Entity.*;
+import com.group130.laundryapp.laundry2_0.Domain.Enum.ConversationCounterpart;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -49,23 +50,43 @@ public class ConversationService {
      * creating it if it doesn't exist yet. Throws if the two accounts
      * are not actually both legitimately tied to this order.
      */
+
     @Transactional
-    public Conversation getOrCreateConversation(UUID orderId, UUID requesterAccountId, UUID otherAccountId) {
+    public Conversation getOrCreateConversation(UUID orderId, UUID requesterAccountId, ConversationCounterpart counterpart) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new IllegalArgumentException("Order not found"));
 
-        // ── THE GATE — verify both accounts are legitimately tied to this order ──
+        // Requester must be a legitimate participant on this order.
         validateParticipant(order, requesterAccountId);
-        validateParticipant(order, otherAccountId);
 
-        // Sort IDs so (A,B) and (B,A) always resolve to the same conversation
+        // Resolve the OTHER side from the order itself — never trust a client-supplied UUID.
+        UUID otherAccountId = switch (counterpart) {
+            case BUSINESS -> order.getBusiness().getAccount().getId();
+            case CUSTOMER -> order.getUser().getAccount().getId();
+            case PICKUP_RIDER -> {
+                if (order.getPickupRider() == null) {
+                    throw new IllegalStateException("No pickup rider is assigned to this order yet");
+                }
+                yield order.getPickupRider().getAccount().getId();
+            }
+            case DROPOFF_RIDER -> {
+                if (order.getDropoffRider() == null) {
+                    throw new IllegalStateException("No dropoff rider is assigned to this order yet");
+                }
+                yield order.getDropoffRider().getAccount().getId();
+            }
+        };
+
+        if (otherAccountId.equals(requesterAccountId)) {
+            throw new IllegalArgumentException("Cannot start a conversation with yourself");
+        }
+
         UUID lower = requesterAccountId.compareTo(otherAccountId) < 0 ? requesterAccountId : otherAccountId;
         UUID upper = requesterAccountId.compareTo(otherAccountId) < 0 ? otherAccountId : requesterAccountId;
 
         return conversationRepository.findByOrderAndParticipants(orderId, lower, upper)
                 .orElseGet(() -> createConversation(order, lower, upper));
     }
-
     private Conversation createConversation(Order order, UUID participantA, UUID participantB) {
         Account accountA = accountRepository.getReferenceById(participantA);
         Account accountB = accountRepository.getReferenceById(participantB);
