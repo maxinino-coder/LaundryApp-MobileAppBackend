@@ -13,9 +13,9 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * PaystackService
+ * PayStackService
  *
- * The only class that talks to Paystack's API directly.
+ * The class that talks to Paystack's API directly.
  * Four operations:
  *   1. initializeTransaction — start any of the three payment types
  *   2. createSubaccount      — one-time business onboarding
@@ -33,15 +33,6 @@ public class PayStackService {
     //  1. INITIALIZE TRANSACTION
     // -----------------------------------------------
 
-    /**
-     * Reference encodes both the order id and the payment type
-     * (e.g. "ORDER_<uuid>_SERVICE"), so the webhook can tell
-     * exactly which Payment row to update when Paystack confirms.
-     *
-     * subaccountCode is null for RIDE_PICKUP / RIDE_DROPOFF —
-     * that money settles to the platform's main balance, held
-     * until the corresponding leg is confirmed by the business.
-     */
     public String initializeTransaction(
             String customerEmail,
             BigDecimal amountInMainUnit,
@@ -70,12 +61,18 @@ public class PayStackService {
 
         InitializeTransactionRequest request = builder.build();
 
-        PaystackResponse<Map> response = paystackWebClient.post()
-                .uri("/transaction/initialize")
-                .bodyValue(request)
-                .retrieve()
-                .bodyToMono(PaystackResponse.class)
-                .block();
+        PaystackResponse<Map> response;
+        try {
+            response = paystackWebClient.post()
+                    .uri("/transaction/initialize")
+                    .bodyValue(request)
+                    .retrieve()
+                    .bodyToMono(PaystackResponse.class)
+                    .block();
+        } catch (Exception e) {
+            log.error("Paystack initialize transaction error for order {}: {}", orderId, e.getMessage());
+            throw new IllegalStateException("Payment service is currently unavailable. Please check your internet connection.");
+        }
 
         if (response == null || !response.isStatus()) {
             throw new IllegalStateException(
@@ -103,12 +100,18 @@ public class PayStackService {
                 "percentage_charge", percentageChargeToBusiness
         );
 
-        PaystackResponse<Map> response = paystackWebClient.post()
-                .uri("/subaccount")
-                .bodyValue(request)
-                .retrieve()
-                .bodyToMono(PaystackResponse.class)
-                .block();
+        PaystackResponse<Map> response;
+        try {
+            response = paystackWebClient.post()
+                    .uri("/subaccount")
+                    .bodyValue(request)
+                    .retrieve()
+                    .bodyToMono(PaystackResponse.class)
+                    .block();
+        } catch (Exception e) {
+            log.error("Paystack create subaccount error for business {}: {}", businessName, e.getMessage());
+            throw new IllegalStateException("Failed to reach payment gateway to create business subaccount.");
+        }
 
         if (response == null || !response.isStatus()) {
             throw new IllegalStateException("Failed to create Paystack subaccount for " + businessName);
@@ -135,12 +138,18 @@ public class PayStackService {
                 "currency", "GHS"
         );
 
-        PaystackResponse<Map> response = paystackWebClient.post()
-                .uri("/transferrecipient")
-                .bodyValue(request)
-                .retrieve()
-                .bodyToMono(PaystackResponse.class)
-                .block();
+        PaystackResponse<Map> response;
+        try {
+            response = paystackWebClient.post()
+                    .uri("/transferrecipient")
+                    .bodyValue(request)
+                    .retrieve()
+                    .bodyToMono(PaystackResponse.class)
+                    .block();
+        } catch (Exception e) {
+            log.error("Paystack create transfer recipient error for rider {}: {}", riderName, e.getMessage());
+            throw new IllegalStateException("Failed to reach payment gateway to set up rider payout account.");
+        }
 
         if (response == null || !response.isStatus()) {
             throw new IllegalStateException("Failed to create transfer recipient for rider " + riderName);
@@ -170,12 +179,18 @@ public class PayStackService {
                 "reference", reference
         );
 
-        PaystackResponse<Map> response = paystackWebClient.post()
-                .uri("/transfer")
-                .bodyValue(request)
-                .retrieve()
-                .bodyToMono(PaystackResponse.class)
-                .block();
+        PaystackResponse<Map> response;
+        try {
+            response = paystackWebClient.post()
+                    .uri("/transfer")
+                    .bodyValue(request)
+                    .retrieve()
+                    .bodyToMono(PaystackResponse.class)
+                    .block();
+        } catch (Exception e) {
+            log.error("Paystack initiate transfer error for rider earning {}: {}", riderEarningId, e.getMessage());
+            throw new IllegalStateException("Failed to reach payment gateway for rider payout.");
+        }
 
         if (response == null || !response.isStatus()) {
             throw new IllegalStateException("Failed to initiate transfer for rider earning " + riderEarningId);

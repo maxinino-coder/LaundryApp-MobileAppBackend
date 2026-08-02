@@ -32,6 +32,11 @@ public class UserController {
         return ResponseEntity.ok(businessService.getBusinessInfo(Name, Location));
     }
 
+    @GetMapping("/business/{businessId}/service_items")
+    public ResponseEntity<List<ServiceItemDTO>> getBusinessServiceItems(@PathVariable UUID businessId) {
+        return ResponseEntity.ok(businessService.getServiceItems(businessId));
+    }
+
     //GetUserInfoBy accountId
     @GetMapping("/getuserinfoById")
     public ResponseEntity<userInfo> GetUserInfo(@RequestParam UUID accountId){

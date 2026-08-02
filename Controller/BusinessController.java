@@ -105,12 +105,15 @@ public class BusinessController {
 
 
 
-//    @PostMapping("/create_service_items")
-//    public ResponseEntity<ServiceItem> createServiceItems(
-//            @RequestBody CreateServiceItemRequest request) {
-//        return ResponseEntity.ok(businessService.createServiceItem(request));
-//    }
+    @GetMapping("/{accountId}/service_items")
+    public ResponseEntity<List<ServiceItemDTO>> getServiceItems(@PathVariable UUID accountId) {
+        return ResponseEntity.ok(businessService.getServiceItems(accountId));
+    }
 
-
-
+    @PutMapping("/{accountId}/service_items")
+    public ResponseEntity<List<ServiceItemDTO>> updateServiceItems(
+            @PathVariable UUID accountId,
+            @RequestBody List<ServiceItemDTO> items) {
+        return ResponseEntity.ok(businessService.updateServiceItems(accountId, items));
+    }
 }

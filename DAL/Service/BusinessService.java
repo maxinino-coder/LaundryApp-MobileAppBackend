@@ -12,6 +12,11 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.group130.laundryapp.laundry2_0.DAL.Repository.ServiceItemRepository;
+import com.group130.laundryapp.laundry2_0.Domain.Entity.ServiceItem;
+import com.group130.laundryapp.laundry2_0.Domain.DTO.ServiceItemDTO;
+import org.springframework.transaction.annotation.Transactional;
+
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
@@ -26,11 +31,13 @@ public class BusinessService {
     private final OrderItemRepository orderItemRepository;
     private final BusinessPayoutRepository businessPayoutRepository;
     private final RiderRepository riderRepository;
+    private final ServiceItemRepository serviceItemRepository;
 
     // Overload 1: Called by /business_info
-    public Business getBusinessByAccountId(UUID accountId) {
-        return businessRepository.findByAccountId(accountId)
-                .orElseThrow(() -> new RuntimeException("Business not found for accountId: " + accountId));
+    public Business getBusinessByAccountId(UUID id) {
+        return businessRepository.findByAccountId(id)
+                .or(() -> businessRepository.findById(id))
+                .orElseThrow(() -> new RuntimeException("Business not found for ID: " + id));
     }
 
     // Overload 2: Called by /getbusinessInfo
@@ -376,37 +383,46 @@ public List<orderInfo> getBusinesOrders(UUID accountId) {
 
 
 //    @Transactional
-//    public ServiceItem createServiceItem(CreateServiceItemRequest request) {
-//        Business business = businessRepository.findByAccountId(request.getAccountId())
-//                .orElseThrow(() ->
-//                        new RuntimeException(
-//                                "Business not found"
-//                        ));
-//
-//        boolean exists = serviceItemRepository.existsByBusinessIdAndNameIgnoreCase(
-//                business.getId(),
-//                request.getName());
-//        if (exists) {
-//            throw new RuntimeException(
-//                    "Service item already exists"
-//            );
-//        }
-//        ServiceItem serviceItem = ServiceItem.builder()
-//                .business(business)
-//                .name(request.getName())
-//                .description(request.getDescription())
-//                .category(request.getCategory())
-//                .pricing_model(request.getPricingModel())
-//                .unitPrice(request.getUnitPrice())
-//                .unit(request.getUnit() != null
-//                        ? request
-//                        .getUnit()
-//                        : "piece")
-//                .imageUrl(request.getImageUrl())
-//                .isActive(true)
-//                .build();
-//
-//        return serviceItemRepository.save(serviceItem);
-//    }
+    public List<ServiceItemDTO> getServiceItems(UUID accountOrBusinessId) {
+        Business business = getBusinessByAccountId(accountOrBusinessId);
+        List<ServiceItem> items = serviceItemRepository.findByBusinessId(business.getId());
+        return items.stream()
+                .map(i -> ServiceItemDTO.builder()
+                        .id(i.getId())
+                        .itemKey(i.getItemKey())
+                        .name(i.getName())
+                        .unitPrice(i.getUnitPrice())
+                        .icon(i.getIcon())
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public List<ServiceItemDTO> updateServiceItems(UUID accountOrBusinessId, List<ServiceItemDTO> dtos) {
+        Business business = getBusinessByAccountId(accountOrBusinessId);
+        if (dtos == null || dtos.isEmpty()) {
+            return getServiceItems(business.getId());
+        }
+
+        for (ServiceItemDTO dto : dtos) {
+            if (dto.getItemKey() == null || dto.getItemKey().isBlank()) continue;
+            ServiceItem item = serviceItemRepository
+                    .findByBusinessIdAndItemKey(business.getId(), dto.getItemKey())
+                    .orElse(ServiceItem.builder()
+                            .business(business)
+                            .itemKey(dto.getItemKey())
+                            .name(dto.getName() != null ? dto.getName() : dto.getItemKey())
+                            .build());
+
+            if (dto.getName() != null) item.setName(dto.getName());
+            if (dto.getUnitPrice() != null) item.setUnitPrice(dto.getUnitPrice());
+            if (dto.getIcon() != null) item.setIcon(dto.getIcon());
+            item.setActive(true);
+
+            serviceItemRepository.save(item);
+        }
+
+        return getServiceItems(business.getId());
+    }
 }
 
