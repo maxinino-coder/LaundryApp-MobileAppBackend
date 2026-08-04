@@ -1,0 +1,97 @@
+spring:
+  application:
+    name: laundry-app
+
+  datasource:
+    # Overridden by DATABASE_* env vars in production (Railway -> Supabase Postgres).
+    # The defaults keep local development working with no env file.
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5433/laundry_db}
+    username: ${DATABASE_USERNAME:postgres}
+    password: ${DATABASE_PASSWORD:mask}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: ${DB_POOL_SIZE:10}
+      minimum-idle: 2
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+
+  jpa:
+    hibernate:
+      # Schema is owned by Flyway, never by Hibernate.
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        # Batching for better INSERT/UPDATE performance
+        jdbc:
+          batch_size: 25
+        order_inserts: true
+        order_updates: true
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    # If the target database already has the tables (e.g. the local one you
+    # created by hand), Flyway baselines instead of failing.
+    baseline-on-migrate: true
+
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${GOOGLE_CLIENT_ID}
+            client-secret: ${GOOGLE_CLIENT_SECRET}
+
+            # Must match the redirectionEndpoint baseUri in SecurityConfig.
+            # SecurityConfig uses baseUri("/api/v1/auth/google/callback/*")
+            # and Spring appends the registrationId ("google") automatically:
+            #   <baseUrl>/api/v1/auth/google/callback/google
+            # {baseUrl} and {registrationId} are Spring placeholders - leave as-is.
+            # server.forward-headers-strategy below makes {baseUrl} resolve to the
+            # public https:// origin when running behind Railway's proxy.
+            redirect-uri: "{baseUrl}/api/v1/auth/google/callback/{registrationId}"
+
+            scope:
+              - openid
+              - email
+              - profile
+
+        provider:
+          google:
+            authorization-uri: https://accounts.google.com/o/oauth2/v2/auth
+            token-uri: https://oauth2.googleapis.com/token
+            user-info-uri: https://www.googleapis.com/oauth2/v3/userinfo
+            jwk-set-uri: https://www.googleapis.com/oauth2/v3/certs
+            user-name-attribute: sub
+
+server:
+  # Railway (and most PaaS hosts) inject the port to bind to as $PORT.
+  port: ${PORT:8080}
+  # Trust X-Forwarded-* from the platform proxy so Spring builds redirect URLs
+  # with the public https:// host instead of the internal http://container:port.
+  forward-headers-strategy: framework
+
+# JWT config - override JWT_SECRET via environment variable in production.
+jwt:
+  secret: ${JWT_SECRET:your-very-long-secret-key-here-min-256-bits}
+  access-token-expiry-ms: 900000         # 15 minutes
+  refresh-token-expiry-ms: 604800000     # 7 days
+
+google:
+  client-id: ${GOOGLE_CLIENT_ID}
+  # Deep link the backend sends the browser back to after Google sign-in.
+  frontend-redirect-url: ${FRONTEND_URL}
+
+app:
+  # Public origin of this backend, used to hand a full sign-in URL to the app.
+  public-url: ${APP_PUBLIC_URL:http://localhost:8080}
+
+logging:
+  level:
+    com.group130.laundryapp: ${LOG_LEVEL:INFO}
+    org.springframework.security: INFO
+    org.hibernate.SQL: INFO
